@@ -8,13 +8,15 @@ print("Conectando con el servidor...")
 socket = context.socket(zmq.REQ)
 socket.connect("tcp://localhost:5555")
 
+# 2MB
 sizechunk = 2 * 1024 * 1024
 
 # read file
-namefile = "file1m"
+namefile = "file10m"
 file = open(namefile, "rb")
 part = 0
 
+print("Escriba el comando: upload - list - download")
 action = input()
 
 if action == 'upload':
@@ -53,13 +55,36 @@ while True:
 		print(lenlistfiles)
 		break
 	elif action == 'download':
+		# send action
 		socket.send(b"%s" % action.encode('utf-8'))
 		ok = socket.recv()
 
+		# recibir por teclado nombre archivo
+		print("Escriba el nombre del archivo a descargar:")
 		down_namefile = input()
 		socket.send_string("%s" % down_namefile)
-		ok = socket.recv()
-		print(ok)
+		ans = socket.recv_string()
+		if ans == 0:
+			print("No se encontro el archivo")
+		else:
+			print("Se encontraron " + ans + " partes")
+		while True:
+			print("ingreso while cliente")
+			socket.send(b"solicitud partes")
+			filename, content, hashingserver, flat = socket.recv_multipart()
+			flat = flat.decode('utf-8')
+			if flat == "1":
+				print("ingreso flat cliente")
+				hashingclient = hashlib.md5(content).digest()
+				if hashingclient == hashingserver:
+					file = open("recv/" + filename.decode(), 'ab')
+					file.write(content)
+					file.close()
+					print("Archivo Correcto")
+				else:
+					print("Archivo Corrupto")
+			else:
+				break
 		break
 if action == 'upload':
 	file.close()

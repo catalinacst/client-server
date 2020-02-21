@@ -9,6 +9,7 @@ socket.bind("tcp://*:5555")
 
 while True:
 	# recibir la accion
+	print("Servidor Escuchando")
 	action = socket.recv()
 	action = action.decode('utf-8')
 	socket.send(b"Accion Recibida")
@@ -35,8 +36,50 @@ while True:
 		listfiles = listdir("files/")
 		socket.send_string("%s" % str(listfiles))
 	elif action == 'download':
+		i = 0
 		print("Solicitud Descarga Archivo...")
 		down_namefile = socket.recv_string()
-		# conocer cantidad de partes que tiene el archivo a descargar
-		# file = open("files/" + down_namefile, "rb")
-		socket.send(b"ok")
+		listfiles = listdir("files/")
+		print(listfiles)
+		count = 0
+		for file in listfiles:
+			namefile = down_namefile + ".part_1"
+			if file == namefile:
+				print("Si se encontro el archivo...")
+				i = 1
+				while True:
+					namefile = down_namefile + ".part_" + str(i)
+					count = count + 1
+					for file in listfiles:
+						if file == namefile:
+							i = i + 1
+							break
+					if count > len(listfiles):
+						break
+				break
+		if i == 0:
+			socket.send_string("%s" % "0")
+		else:
+			socket.send_string("%s" % str(i - 1))
+
+		sizechunk = 2 * 1024 * 1024
+		part = 1
+		while True:
+			print("ingreso while server")
+			ok = socket.recv()
+			namefile = down_namefile + ".part_" + str(part)
+			if namefile in listfiles:
+				file = open("files/" + namefile, "rb")
+				chunk = file.read(sizechunk)
+				part = part + 1
+				if not chunk:
+					break
+				hashing = hashlib.md5(chunk).digest()
+				# send filename, content and hash
+				flat = "1"
+				socket.send_multipart([down_namefile.encode(), chunk, hashing, flat.encode('utf-8')])
+				file.close()
+			else:
+				flat = "0"
+				socket.send_multipart([down_namefile.encode(), chunk, hashing, flat.encode('utf-8')])
+				break
