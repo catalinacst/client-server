@@ -35,7 +35,7 @@ class Server():
 		if filename_down in self.listfiles:
 			self.file = open("files/" + filename_down, "rb")
 			self.chunk = self.file.read(self.sizechunk)
-
+			self.socketREP.send(b"%s", self.chunk)
 
 	def listening(self):
 		print("Servidor escuchando en el puerto {}".format(self.port))
