@@ -74,7 +74,6 @@ class Proxy():
 				self.socket.send(hashes_server)
 			# if action == 'list': listar todos las keys de hash_servers_general
 
-
 port = sys.argv[1]
 proxy = Proxy(port)
 proxy.listening()

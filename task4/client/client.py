@@ -66,7 +66,6 @@ class Client():
 				self.socket.disconnect("tcp://{}:{}".format(ip_proxy, port_proxy)) # ip -> localhost
 				self.up_files(self.filename, self.hash_server)
 
-
 # ip = sys.argv[1]
 # port = sys.argv[2]
 

@@ -61,7 +61,6 @@ class Server():
 ip = sys.argv[1]
 port = sys.argv[2]
 capacity = sys.argv[3]
-# print("ip: %s port: %s capacity: %s" % ip, port, capacity)
 server = Server(ip, port, capacity)
 server.register("localhost", "5556") # datos del proxy
 server.listening()
