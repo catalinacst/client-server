@@ -2,6 +2,8 @@ import zmq
 import hashlib
 import sys
 
+# 5556
+
 class Proxy():
 	def __init__(self, port):
 		self.port = port
@@ -12,7 +14,6 @@ class Proxy():
 		self.hash_servers_general = {} # {filename: [hash, ip, port]}
 
 	def register_nserver(self, ip, port, capacity):
-		print(ip, port, capacity)
 		self.serverslist.append([ip, port, capacity])
 
 	def upload_file(self, filename, hashes, weights):
@@ -46,28 +47,27 @@ class Proxy():
 	def listening(self):
 		print("Proxy escuchando en el puerto {}".format(self.port))
 		while True:
-			action = self.socket.recv()
-			action = action.decode('utf-8')
-			self.socket.send(b"accion recibida")
+			action = self.socket.recv_string()
+			self.socket.send_string("accion recibida")
 			# analizar opciones
 			if action == 'newserver':
 				ip, port, capacity = self.socket.recv_multipart()
-				self.register_nserver(ip, port, capacity)
-				send_string("servidor registrado")
+				self.register_nserver(ip.decode(), port.decode(), capacity.decode())
+				self.socket.send_string("** servidor registrado **")
+				print("Servidores Conectados " + str(self.serverslist))
 			if action == 'uploadfile':
 				# hashes (partes) weights (peso de las partes)
 				filename, hashes, weights = self.socket.recv_multipart()
 				hashes_server = self.upload_file(filename, hashes, weights)
-				socket.send_multipart([hashes_server])
+				self.socket.send_string(hashes_server)
 			if action == 'downloadfile':
 				filename = self.socket.recv_multipart()
 				hashes_server = self.download_file(filename)
-				socket.send_multipart([hashes_server])
+				self.socket.send_string(hashes_server)
 			# if action == 'list': listar todos las keys de hash_servers_general
 
 
 port = sys.argv[1]
-print("port: %s" % port)
 proxy = Proxy(port)
 proxy.listening()
 

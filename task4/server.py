@@ -3,6 +3,8 @@ import hashlib
 import sys
 from os import listdir
 
+# 5557
+
 class Server():
 	def __init__(self, ip, port, capacity):
 		self.ip = ip
@@ -13,10 +15,16 @@ class Server():
 		self.socketREP = self.context.socket(zmq.REP) # espera peticion
 		self.socketREP.bind("tcp://*:{}".format(self.port))
 
-	def register(self): # register server in proxy
-		self.socketREQ.connect("tcp://{}:{}".format(self.ip, self.port)) # ip -> localhost
-		self.socketREQ.send_multipart([self.ip, self.port, self.capacity])
-		self.ok = socketREQ.recv_string()
+	def register(self, ip_proxy = "localhost", port_proxy = "5556"): # register server in proxy
+		print("** registrando servidor **")
+		self.ip_proxy = ip_proxy
+		self.port_proxy = port_proxy
+		self.socketREQ.connect("tcp://{}:{}".format(self.ip_proxy, self.port_proxy)) # ip -> localhost
+		self.socketREQ.send_string("newserver")
+		self.ok = self.socketREQ.recv_string()
+		self.socketREQ.send_multipart([self.ip.encode(), self.port.encode(), self.capacity.encode()])
+		self.ok = self.socketREQ.recv_string()
+		print(self.ok)
 
 	def upload_file(self, filename, content, hashingclient):
 		print("recibiendo archivo...")
@@ -35,7 +43,7 @@ class Server():
 		if filename_down in self.listfiles:
 			self.file = open("files/" + filename_down, "rb")
 			self.chunk = self.file.read(self.sizechunk)
-			self.socketREP.send(b"%s", self.chunk)
+			self.socketREP.send(b"%s" % self.chunk)
 
 	def listening(self):
 		print("Servidor escuchando en el puerto {}".format(self.port))
@@ -50,13 +58,11 @@ class Server():
 				filename_down = socketREP.recv_string() # hash
 				self.download_file(filename_down)
 
-
-
 ip = sys.argv[1]
 port = sys.argv[2]
 capacity = sys.argv[3]
-print("ip: %s port: %s capacity: " % ip, port, capacity)
+# print("ip: %s port: %s capacity: %s" % ip, port, capacity)
 server = Server(ip, port, capacity)
-server.register()
+server.register("localhost", "5556")
 server.listening()
 
