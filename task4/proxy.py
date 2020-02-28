@@ -1,6 +1,7 @@
 import zmq
 import hashlib
 import sys
+import json
 
 # 5556
 
@@ -16,27 +17,31 @@ class Proxy():
 	def register_nserver(self, ip, port, capacity):
 		self.serverslist.append([ip, port, capacity])
 
-	def upload_file(self, filename, hashes, weights):
+	def upload_file(self, filename, hashes):
+		self.weight = 2 # 2MB
 		self.hash_servers_specific = {} # {filename: [hash, ip, port]}
-		print(hashes)
+		self.hash_servers_specific[filename] = []
+		self.hash_servers_general[filename] = []
 		# load balancing
 		i = 0
 		cantservers = len(self.serverslist)
-		for (hashh, weight) in zip(hashes, weights):
+		for hashh in hashes:
 			if i == cantservers - 1:
 				i = 0
+			else:
+				i = i + 1
 			save = 0
 			while save == 0:
 				capacity = self.serverslist[i][2] # server capacity
-				if capacity < weight:
-					self.serverslist[i][2] = self.serverslist[i][2] - capacity
+				if self.weight < int(capacity):
+					self.serverslist[i][2] = int(self.serverslist[i][2]) - self.weight
 					ip = self.serverslist[i][0] # ip server
 					port = self.serverslist[i][1] # port server
 					self.hash_servers_specific[filename].append([hashh, ip, port])
 					self.hash_servers_general[filename].append([hashh, ip, port])
 					save = 1
-				else:
-					i = i + 1
+		print("Balanceo de Cargas")
+		print(self.hash_servers_specific)
 		return self.hash_servers_specific
 
 	def download_file(self, filename):
@@ -55,15 +60,18 @@ class Proxy():
 				self.register_nserver(ip.decode(), port.decode(), capacity.decode())
 				self.socket.send_string("** servidor registrado **")
 				print("Servidores Conectados " + str(self.serverslist))
-			if action == 'uploadfile':
-				# hashes (partes) weights (peso de las partes)
-				filename, hashes, weights = self.socket.recv_multipart()
-				hashes_server = self.upload_file(filename, hashes, weights)
-				self.socket.send_string(hashes_server)
-			if action == 'downloadfile':
+			if action == 'upload':
+				# hashes (partes) weights (peso de las partes siempre es 2)
+				print("cliente conectado")
+				data = self.socket.recv_multipart()
+				filename = data[0]
+				hashes = json.loads(data[1].decode('utf8'))
+				hashes_server = self.upload_file(filename.decode(), hashes)
+				self.socket.send(json.dumps(hashes_server).encode('utf8'))
+			if action == 'download':
 				filename = self.socket.recv_multipart()
 				hashes_server = self.download_file(filename)
-				self.socket.send_string(hashes_server)
+				self.socket.send(hashes_server)
 			# if action == 'list': listar todos las keys de hash_servers_general
 
 
