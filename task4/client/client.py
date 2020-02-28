@@ -47,6 +47,23 @@ class Client():
 			self.file.close()
 			self.socket.disconnect("tcp://{}:{}".format(self.ip, self.port)) # ip -> localhost
 
+	def down_files(self, filename, hash_server):
+		for server in hash_server:
+			self.part = server[0]
+			self.ip = server[1]
+			self.port = server[2]
+			self.socket.connect("tcp://{}:{}".format(self.ip, self.port)) # ip -> localhost
+			self.socket.send_string("download")
+			self.ok = self.socket.recv_string()
+			self.socket.send_string(self.part)
+			content, hashingserver = self.socket.recv_multipart()
+			self.hashingclient = hashlib.md5(content).digest()
+			if self.hashingclient == hashingserver:
+				self.file = open("recv/" + filename, 'ab')
+				self.file.write(content)
+			self.socket.disconnect("tcp://{}:{}".format(self.ip, self.port)) # ip -> localhost
+		self.file.close()
+
 	def listening(self, ip_proxy, port_proxy):
 		print("Cliente en el puerto {}".format(self.port))
 		print("Escriba el comando: upload - download")
@@ -59,12 +76,26 @@ class Client():
 				# print("escriba el nombre del archivo a subir")
 				# filename = input()
 				self.filename = "file10m"
-				# self.split_file(self.filename)
+				self.split_file(self.filename)
 				self.listfiles = listdir("to_send/")
+				self.listfiles.sort()
 				self.socket.send_multipart([self.filename.encode(), json.dumps(self.listfiles).encode('utf8')])
 				self.hash_server = json.loads(self.socket.recv().decode('utf8'))
 				self.socket.disconnect("tcp://{}:{}".format(ip_proxy, port_proxy)) # ip -> localhost
 				self.up_files(self.filename, self.hash_server)
+			if action == 'download':
+				self.socket.connect("tcp://{}:{}".format(ip_proxy, port_proxy)) # ip -> localhost
+				self.socket.send_string(action)
+				self.ok = self.socket.recv_string()
+				# print("escriba el nombre del archivo a descargar")
+				# filename = input()
+				self.filename = "file10m"
+				self.socket.send_string(self.filename)
+				self.hash_server = json.loads(self.socket.recv().decode('utf8'))
+				self.socket.disconnect("tcp://{}:{}".format(ip_proxy, port_proxy)) # ip -> localhost
+				# print(self.hash_server)
+				self.down_files(self.filename, self.hash_server)
+
 
 # ip = sys.argv[1]
 # port = sys.argv[2]

@@ -45,8 +45,7 @@ class Proxy():
 		return self.hash_servers_specific
 
 	def download_file(self, filename):
-		if self.hash_servers_general.has_key(filename) == True:
-			data = listone.get(filename)
+		data = self.hash_servers_general.get(filename)
 		return data
 
 	def listening(self):
@@ -69,9 +68,9 @@ class Proxy():
 				hashes_server = self.upload_file(filename.decode(), hashes)
 				self.socket.send(json.dumps(hashes_server).encode('utf8'))
 			if action == 'download':
-				filename = self.socket.recv_multipart()
+				filename = self.socket.recv_string()
 				hashes_server = self.download_file(filename)
-				self.socket.send(hashes_server)
+				self.socket.send(json.dumps(hashes_server).encode('utf8'))
 			# if action == 'list': listar todos las keys de hash_servers_general
 
 port = sys.argv[1]

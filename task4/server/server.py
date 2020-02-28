@@ -44,18 +44,22 @@ class Server():
 		if filename_down in self.listfiles:
 			self.file = open("files/" + filename_down, "rb")
 			self.chunk = self.file.read(self.sizechunk)
-			self.socketREP.send(b"%s" % self.chunk)
+			self.hashing = hashlib.md5(self.chunk).digest()
+			self.socketREP.send_multipart([self.chunk, self.hashing])
+
 
 	def listening(self):
 		print("Servidor escuchando en el puerto {}".format(self.port))
 		while True:
 			action = self.socketREP.recv_string()
 			self.socketREP.send_string("accion recibida")
+			print("action: " + action)
 			if action == 'upload':
 				part, content, hashingclient = self.socketREP.recv_multipart()
 				self.upload_file(part.decode(), content, hashingclient)
 			if action == 'download':
 				filename_down = self.socketREP.recv_string() # hash
+				print(filename_down)
 				self.download_file(filename_down)
 
 ip = sys.argv[1]
