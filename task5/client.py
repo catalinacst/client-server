@@ -20,37 +20,40 @@ class Client():
 		print("upload - download")
 		print("help -- show options\n")
 
-	def download_file(self, ip, port):
-		id_hash = int(hashname, 16)
+	def download_file(self, id_hash, hashname, namefile, ip, port):
 		self.socket.connect("tcp://{}:{}".format(ip, port)) # known server
-		self.socket.send_string(hashname)
-		ok, chunk = self.socket.recv_multipart()
+		self.socket.send_multipart(["download_file".encode(), str(id_hash).encode(), hashname.encode()])
+		data = self.socket.recv_multipart()
 		self.socket.disconnect("tcp://{}:{}".format(ip, port)) # known server
-		file = open("client_data/" + "file_complet" + hashname, "ab")
-		file.write(chunk)
-		file.close()
+		ans = data[0].decode()
+		if(ans == "no"):
+			data_next = json.loads(data[1].decode())
+			self.download_file(id_hash, hashname, namefile, data_next["ip"], data_next["port"])
+		else:
+			chunk = data[1]
+			file = open("client_data/" + namefile, "ab")
+			file.write(chunk)
+			file.close()
 
-	def verify_download_file(self, hashname, ip, port):
+	def verify_download_file(self, hashname):
 		file = open("client_data/" + "data_" + hashname, "rt")
 		file.seek(0)
-		sizelines = len(file.readlines())
+		lines = file.readlines()
+		sizelines = len(lines)
 		i = 1
-		for line in file.readlines():
-			if(i > sizelines - 2):
-				break
-			hashpart = line
-			id_hash = int(hashpart, 16)
-			self.socket.connect("tcp://{}:{}".format(ip, port)) # known server
-			self.socket.send_multipart(["download_file".encode(), str(id_hash).encode()])
-			data = self.socket.recv_multipart()
-			self.socket.disconnect("tcp://{}:{}".format(ip, port)) # known server
-			ans = data[0].decode()
-			i = i + 1
-			if(ans == "no"):
-				data_next = json.loads(data[1].decode())
-				self.verify_download_file(hashname, data_next["ip"], data_next["port"])
+		namefile = ''
+		for line in lines:
+			if(i == 1):
+				namefile = line.rstrip('\n')
 			else:
-				self.download_file(hashname, ip, port)
+				ans = "no"
+				if(i >= sizelines):
+					break
+				hashpart = line.rstrip('\n')
+				id_hash = int(hashpart, 16)
+				self.download_file(id_hash, hashpart, namefile, self.ip_general, self.port_general)
+				print("downloading part ", i, "...")
+			i = i + 1
 		file.close()
 
 	def download_data(self, hashname, ip, port):
@@ -61,7 +64,6 @@ class Client():
 		file = open("client_data/" + "data_" + hashname, "wb")
 		file.write(chunk)
 		file.close()
-		self.verify_download_file(hashname, self.ip_general, self.port_general)
 
 	def verify_download_data(self, hashname, ip, port):
 		self.socket.connect("tcp://{}:{}".format(ip, port)) # known server
@@ -112,12 +114,12 @@ class Client():
 		file = open(filename, "rb")
 		flat = 1
 		file_hash = open("client_data/" + "data_" + filename, 'wt')
+		file_hash.write(filename + "\n")
 		i = 1
 		while True:
 			chunk = file.read(self.sizechunk)
 			if not chunk:
 				file_hash.write(str(hashall.hexdigest()) + "\n")
-				file_hash.write(filename + "\n")
 				file_hash.close()
 				break
 			if(flat == 1):
@@ -150,6 +152,7 @@ class Client():
 				print("waiting filename:")
 				hashname = input()
 				data = self.verify_download_data(hashname, self.ip_general, self.port_general)
+				self.verify_download_file(hashname)
 			elif(action == "help"):
 				self.view_info()
 			else:

@@ -144,7 +144,8 @@ class Server():
 		file.close()
 
 	def download_data(self, hashname):
-		file = open("server_hashes/" + str(self.port) + "_" + hashname, "rb")
+		print("debug hashname: ", hashname, type(hashname))
+		file = open("server_hashes/" + str(self.port) + "_" + str(hashname), "rb")
 		chunk = file.read(self.sizechunk)
 		self.socketREP.send_multipart(["ok".encode(), chunk])
 
@@ -174,11 +175,10 @@ class Server():
 		else:
 			self.socketREP.send_multipart(["no".encode(), json.dumps(self.data_next).encode()])
 
-	def verify_file(self, id_hash):
+	def verify_file(self, id_hash, hashname):
 		confirm = self.verify(id_hash)
 		if(confirm == 1):
-			self.socketREP.send_multipart(["ok".encode()])
-			hashname = self.socketREP.recv_string()
+			hashname = hashname.decode()
 			self.download_data(hashname)
 		else:
 			self.socketREP.send_multipart(["no".encode(), json.dumps(self.data_next).encode()])
@@ -208,7 +208,11 @@ class Server():
 				self.verify_download(id_hash)
 			elif action == "download_file":
 				id_hash = int(data[1])
-				self.verify_file(id_hash)
+				hashname = data[2]
+				print("id_hash", id_hash)
+				print("hashname", hashname)
+				print("imprimir el hash", id_hash)
+				self.verify_file(id_hash, hashname)
 			elif action == "help":
 				self.view_info()
 			else:
