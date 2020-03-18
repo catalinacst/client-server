@@ -69,7 +69,7 @@ class Server():
 			self.write_json_info()
 
 	def write_json_info(self):
-			file = open("server_info/" + str(self.port), 'wt')
+			file = open("info_server/" + str(self.port), 'wt')
 			file.write("ide:  " + str(self.ide) + "\n")
 			file.write("ip_general:  " + str(self.ip_general) + "\n")
 			file.write("port_general:  " + str(self.port_general) + "\n")
@@ -139,13 +139,12 @@ class Server():
 
 	def upload_file(self, hashpart, chunk):
 		print("save hash: ", hashpart.decode())
-		file = open("server_hashes/" + str(self.port) + "_" + hashpart.decode(), "wb")
+		file = open(str(self.port) + "/" + hashpart.decode(), "wb")
 		file.write(chunk)
 		file.close()
 
 	def download_data(self, hashname):
-		print("debug hashname: ", hashname, type(hashname))
-		file = open("server_hashes/" + str(self.port) + "_" + str(hashname), "rb")
+		file = open(str(self.port) + "/" + str(hashname), "rb")
 		chunk = file.read(self.sizechunk)
 		self.socketREP.send_multipart(["ok".encode(), chunk])
 
@@ -209,9 +208,6 @@ class Server():
 			elif action == "download_file":
 				id_hash = int(data[1])
 				hashname = data[2]
-				print("id_hash", id_hash)
-				print("hashname", hashname)
-				print("imprimir el hash", id_hash)
 				self.verify_file(id_hash, hashname)
 			elif action == "help":
 				self.view_info()

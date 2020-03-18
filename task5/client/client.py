@@ -31,12 +31,12 @@ class Client():
 			self.download_file(id_hash, hashname, namefile, data_next["ip"], data_next["port"])
 		else:
 			chunk = data[1]
-			file = open("client_data/" + namefile, "ab")
+			file = open("recv_" + str(self.port) + "/" + namefile, "ab")
 			file.write(chunk)
 			file.close()
 
 	def verify_download_file(self, hashname):
-		file = open("client_data/" + "data_" + hashname, "rt")
+		file = open("recv_" + str(self.port) + "/" + hashname, "rt")
 		file.seek(0)
 		lines = file.readlines()
 		sizelines = len(lines)
@@ -61,7 +61,7 @@ class Client():
 		self.socket.send_string(hashname)
 		ok, chunk = self.socket.recv_multipart()
 		self.socket.disconnect("tcp://{}:{}".format(ip, port)) # known server
-		file = open("client_data/" + "data_" + hashname, "wb")
+		file = open("recv_" + str(self.port) + "/" + hashname, "wb")
 		file.write(chunk)
 		file.close()
 
@@ -91,7 +91,7 @@ class Client():
 
 	def upload_data_file(self, filename):
 		print("uploading datafile...")
-		file = open("client_data/" + filename, "rb")
+		file = open("recv_" + str(self.port) + "/" + filename, "rb")
 		flat = 1
 		hash_filename = ''
 		while True:
@@ -113,7 +113,7 @@ class Client():
 	def split_file(self, filename):
 		file = open(filename, "rb")
 		flat = 1
-		file_hash = open("client_data/" + "data_" + filename, 'wt')
+		file_hash = open("recv_" + str(self.port) + "/data_" + filename, 'wt')
 		file_hash.write(filename + "\n")
 		i = 1
 		while True:
