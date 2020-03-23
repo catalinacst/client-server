@@ -5,6 +5,7 @@ import json
 import getmac # get_mac
 import random
 import string
+import os
 from os import listdir
 
 # 5555 general
@@ -32,7 +33,7 @@ class Server():
 
 	def set_id(self):
 		mac = getmac.get_mac_address()
-		ran = ''.join([random.choice(string.ascii_letters + string.digits) for n in range(32)])
+		ran = ''.join([random.choice(string.ascii_letters + string.digits) for n in range(2)])
 		hasid = hashlib.sha1((mac + ran).encode()).hexdigest()
 		self.ide = int(hasid, 16)
 
@@ -69,20 +70,59 @@ class Server():
 			self.write_json_info()
 
 	def write_json_info(self):
-			file = open("info_server/" + str(self.port), 'wt')
-			file.write("ide:  " + str(self.ide) + "\n")
+			file = open("info_" + str(self.port), 'wt')
+			file.write("range_left:  " + str(self.range_left) + "\n")
+			file.write("range_right:  " + str(self.range_right) + "\n")
+			file.write("med_right:  " + str(self.med_right) + "\n")
+			file.write("med_left:  " + str(self.med_left) + "\n")
 			file.write("ip_general:  " + str(self.ip_general) + "\n")
 			file.write("port_general:  " + str(self.port_general) + "\n")
 			file.write("ide:  " + str(self.ide) + "\n")
 			file.write("data_prev:  " + str(self.data_prev) + "\n")
 			file.write("data_next:  " + str(self.data_next) + "\n")
-			file.write("range_left:  " + str(self.range_left) + "\n")
-			file.write("med_right:  " + str(self.med_right) + "\n")
-			file.write("med_left:  " + str(self.med_left) + "\n")
-			file.write("range_right:  " + str(self.range_right) + "\n")
 			file.write("done:  " + str(self.done) + "\n")
 			file.write("special_node:  " + str(self.special_node) + "\n" + "\n")
 			file.close()
+
+	def delete_files(self, hashname):
+		os.remove(self.port + "/" + hashname)
+
+	def load_balancing(self):
+		self.socketREQ.connect("tcp://{}:{}".format(self.data_next["ip"], self.data_next["port"])) # connect server prev
+		data = {}
+		data["special_node"] = self.special_node
+		data["range_left"] = self.range_left
+		data["range_right"] = self.range_right
+		data["med_right"] = self.med_right
+		data["med_left"] = self.med_left
+		self.socketREQ.send_multipart(["prepare_load_balancing".encode('utf8'), json.dumps(data).encode('utf8')])
+		hashes = self.socketREQ.recv_multipart()
+		print("cant hashes ", int(hashes[0].decode()))
+		if(int(hashes[0].decode()) > 0):
+			list_hashes = json.loads(hashes[1].decode())
+			for hashh in list_hashes:
+				self.socketREQ.send_multipart(["download_data".encode(), hashh.encode()])
+				ok, chunk = self.socketREQ.recv_multipart()
+				self.upload_file(hashh, chunk)
+
+	def prepare_load_balancing(self, info):
+		list_hashes = []
+		hashes = listdir(self.port + "/")
+		lenhashes = 0
+		for hashh in hashes:
+			id_hash = int(hashh, 16)
+			if(info["special_node"] == 1):
+				print("hashh: ", hashh, " id_hash: ", id_hash, " med_right: ", info["med_right"], " med_left: ", info["med_left"])
+				if(id_hash <= info["med_right"] or id_hash > info["med_left"]):
+					list_hashes.append(hashh)
+					lenhashes = lenhashes + 1
+			else:
+				print("hashh: ", hashh, " id_hash: ", id_hash, " range_left: ", info["range_left"], " range_right: ", info["range_right"])
+				if(id_hash > info["range_left"] and id_hash <= info["range_right"]):
+					list_hashes.append(hashh)
+					lenhashes = lenhashes + 1
+		self.socketREP.send_multipart([str(lenhashes).encode(), json.dumps(list_hashes).encode()])
+
 
 	def add_node(self, data):
 		ide_nserver = int(data[1].decode())
@@ -102,7 +142,8 @@ class Server():
 			old_data_prev["port"] = self.data_prev["port"]
 			self.update_data_prev(ip_nserver, port_nserver)
 			if(self.special_node == 1):
-				self.update_ranges(0, (2 ** 160) - 1, self.ide, ide_nserver) # range_left, range_right, med_right, med_left
+				# range_left, range_right, med_right, med_left
+				self.update_ranges(0, (2 ** 160) - 1, self.ide, ide_nserver) 
 			else:
 				self.update_ranges(ide_nserver, self.ide)
 			self.socketREP.send_multipart(["ok".encode('utf8'), json.dumps(old_data_prev).encode('utf8')])
@@ -112,6 +153,7 @@ class Server():
 	def add_me(self, ip, port, ide = None): # informacion del nuevo servidor
 		self.socketREQ.connect("tcp://{}:{}".format(ip, port)) # first known server (other -> iterator server)
 		print("connect success")
+		# command, ide, self.ip, self.port
 		self.socketREQ.send_multipart(["add_node".encode('utf8'), str(self.ide).encode('utf8'), str(self.ip).encode('utf8'), str(self.port).encode('utf8')])
 		add_node_done = self.socketREQ.recv_multipart()
 		if(add_node_done[0].decode('utf8') == "ok"): # action
@@ -138,8 +180,8 @@ class Server():
 		print("help -- show options\n")
 
 	def upload_file(self, hashpart, chunk):
-		print("save hash: ", hashpart.decode())
-		file = open(str(self.port) + "/" + hashpart.decode(), "wb")
+		print("save hash: ", hashpart)
+		file = open(str(self.port) + "/" + hashpart, "wb")
 		file.write(chunk)
 		file.close()
 
@@ -199,9 +241,9 @@ class Server():
 				self.socketREP.send_string(str(self.get_id())) # identificador 1
 			elif action == "upload_file":
 				id_hash = int(data[1])
-				hashpart = data[2]
+				hashpart = data[2].decode()
 				chunk = data[3]
-				self.verify_upload(id_hash, hashpart, chunk)
+				self.verify_upload(id_hash, str(hashpart), chunk)
 			elif action == "verify_download_data":
 				id_hash = int(data[1])
 				self.verify_download(id_hash)
@@ -209,6 +251,13 @@ class Server():
 				id_hash = int(data[1])
 				hashname = data[2]
 				self.verify_file(id_hash, hashname)
+			elif action == "prepare_load_balancing":
+				info = json.loads(data[1].decode('utf8'))
+				self.prepare_load_balancing(info)
+			elif action == "download_data":
+				hashname = data[1].decode()
+				self.download_data(hashname)
+				self.delete_files(hashname)
 			elif action == "help":
 				self.view_info()
 			else:
@@ -221,6 +270,7 @@ class Server():
 			self.add_me(self.ip_general, self.port_general)
 			self.done = 1
 			self.write_json_info()
+			self.load_balancing()
 		self.listening()
 
 ip = sys.argv[1]
