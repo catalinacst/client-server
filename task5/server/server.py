@@ -18,7 +18,7 @@ class Server():
 		self.socketREQ = self.context.socket(zmq.REQ) # realiza peticion
 		self.socketREP = self.context.socket(zmq.REP) # espera peticion
 		self.socketREP.bind("tcp://*:{}".format(self.port))
-		self.sizechunk = 2 * 1024 * 1024 # 2MB
+		self.sizechunk = 20 * 1024 * 1024 # 20MB
 		self.ip_general = ip_general
 		self.port_general = port_general
 		self.ide = None
@@ -29,11 +29,11 @@ class Server():
 		self.med_right = None
 		self.range_right = None
 		self.done = None
-		self.special_node = None
+		self.special_node = 0
 
 	def set_id(self):
 		mac = getmac.get_mac_address()
-		ran = ''.join([random.choice(string.ascii_letters + string.digits) for n in range(2)])
+		ran = ''.join([random.choice(string.ascii_letters + string.digits) for n in range(32)])
 		hasid = hashlib.sha1((mac + ran).encode()).hexdigest()
 		self.ide = int(hasid, 16)
 
@@ -104,6 +104,7 @@ class Server():
 				self.socketREQ.send_multipart(["download_data".encode(), hashh.encode()])
 				ok, chunk = self.socketREQ.recv_multipart()
 				self.upload_file(hashh, chunk)
+		self.socketREQ.disconnect("tcp://{}:{}".format(self.data_next["ip"], self.data_next["port"]))
 
 	def prepare_load_balancing(self, info):
 		list_hashes = []
@@ -112,12 +113,10 @@ class Server():
 		for hashh in hashes:
 			id_hash = int(hashh, 16)
 			if(info["special_node"] == 1):
-				print("hashh: ", hashh, " id_hash: ", id_hash, " med_right: ", info["med_right"], " med_left: ", info["med_left"])
 				if(id_hash <= info["med_right"] or id_hash > info["med_left"]):
 					list_hashes.append(hashh)
 					lenhashes = lenhashes + 1
 			else:
-				print("hashh: ", hashh, " id_hash: ", id_hash, " range_left: ", info["range_left"], " range_right: ", info["range_right"])
 				if(id_hash > info["range_left"] and id_hash <= info["range_right"]):
 					list_hashes.append(hashh)
 					lenhashes = lenhashes + 1
@@ -143,7 +142,7 @@ class Server():
 			self.update_data_prev(ip_nserver, port_nserver)
 			if(self.special_node == 1):
 				# range_left, range_right, med_right, med_left
-				self.update_ranges(0, (2 ** 160) - 1, self.ide, ide_nserver) 
+				self.update_ranges(0, (2 ** 160) - 1, self.ide, ide_nserver)
 			else:
 				self.update_ranges(ide_nserver, self.ide)
 			self.socketREP.send_multipart(["ok".encode('utf8'), json.dumps(old_data_prev).encode('utf8')])
@@ -156,11 +155,11 @@ class Server():
 		# command, ide, self.ip, self.port
 		self.socketREQ.send_multipart(["add_node".encode('utf8'), str(self.ide).encode('utf8'), str(self.ip).encode('utf8'), str(self.port).encode('utf8')])
 		add_node_done = self.socketREQ.recv_multipart()
+		self.socketREQ.disconnect("tcp://{}:{}".format(ip, port)) # trasnochada :3
 		if(add_node_done[0].decode('utf8') == "ok"): # action
 			add_data_prev = json.loads(add_node_done[1].decode('utf8'))
 			self.update_data_prev(add_data_prev["ip"], add_data_prev["port"]) # ip, port
 			self.update_data_next(ip, port)
-			self.socketREQ.disconnect("tcp://{}:{}".format(ip, port)) # known serverf
 			self.socketREQ.connect("tcp://{}:{}".format(add_data_prev["ip"], add_data_prev["port"])) # connect server prev
 			self.socketREQ.send_multipart(["update_data_next".encode('utf8'), str(self.ip).encode('utf8'), str(self.port).encode('utf8')]) # update_next de mi prev
 			ide_pev = int(self.socketREQ.recv_string()) # identificador 1

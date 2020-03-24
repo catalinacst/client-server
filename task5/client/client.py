@@ -12,7 +12,7 @@ class Client():
 		self.port = port
 		self.context = zmq.Context()
 		self.socket = self.context.socket(zmq.REQ) # realiza peticion
-		self.sizechunk = 2 * 1024 * 1024 # 2MB
+		self.sizechunk = 20 * 1024 * 1024 # 20MB
 		self.ip_general = ip_general
 		self.port_general = port_general
 
